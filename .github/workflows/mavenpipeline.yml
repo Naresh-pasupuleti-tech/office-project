@@ -2,9 +2,9 @@ name: SpringBoot Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "feature4" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "feature4" ]
 
 jobs:
       Checkout:
@@ -27,8 +27,7 @@ jobs:
             with:
                  java-version: '17'
                  distribution: 'temurin'
-          
-           - name: Run Maven Lint Check
-              run: mvn checkstyle:check
+          - name: Run Maven Lint Check
+            run: mvn checkstyle:check
 
 
