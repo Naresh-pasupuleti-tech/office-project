@@ -28,6 +28,6 @@ jobs:
                  java-version: '17'
                  distribution: 'temurin'
           - name: Run Maven Lint Check
-            run: mvn clean comiple
+            run: mvn checkstyle:check
 
 
