@@ -1,0 +1,15 @@
+name: SpringBoot Pipeline
+
+on:
+  push:
+    branches: [ "feature4" ]
+  pull_request:
+    branches: [ "feature4" ]
+
+jobs:
+      Checkout:
+       name: Checkout
+       runs-on: ubuntu-latest
+       steps:
+          - name: Checkout Repository
+            uses: actions/checkout@v4
