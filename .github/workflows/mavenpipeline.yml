@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "feature4" ]
   pull_request:
-    branches: [ "feature4" ]
+    branches: [ "main" ]
 
 jobs:
       Checkout:
