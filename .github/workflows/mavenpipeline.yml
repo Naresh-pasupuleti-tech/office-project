@@ -1,4 +1,4 @@
-name: SpringBoot Full Pipeline (No Deploy)
+name: SpringBoot Pipeline
 
 on:
   workflow_run:
