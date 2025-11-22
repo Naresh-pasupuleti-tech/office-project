@@ -1,33 +1,166 @@
-name: SpringBoot Pipeline
+name: SpringBoot Full Pipeline (No Deploy)
 
 on:
-  push:
-    branches: [ "feature4" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_run:
+    workflows: ["SpringBoot Pipeline"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  packages: write
 
 jobs:
-      Checkout:
-       name: Checkout
-       runs-on: ubuntu-latest
-       steps:
-          - name: Checkout Repository
-            uses: actions/checkout@v4
 
-      
-      Pre-build:
-        name: Pre-Build 
-        runs-on: ubuntu-latest
-        needs: Checkout
-        steps:
-          - name: Checkout Repository
-            uses: actions/checkout@v4
-          - name: Set up JDK 17
-            uses: actions/setup-java@v4
-            with:
-                 java-version: '17'
-                 distribution: 'temurin'
-          - name: Run Maven Lint Check
-            run: mvn clean install -Dcheckstyle.skip=true
+  Checkout:
+    name: Checkout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
+  Pre-build:
+    name: Pre-Build
+    runs-on: ubuntu-latest
+    needs: Checkout
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Run Maven Lint Check
+        run: mvn clean install -Dcheckstyle.skip=true
+
+  Build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: Pre-build
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Build with Maven
+        run: mvn clean package -DskipTests -B
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spring-boot-app
+          path: target/*.jar
+          retention-days: 1
+
+  Test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: Build
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: spring-boot-app
+          path: target
+      - name: Run Unit Tests
+        run: mvn test
+      - name: Upload JUnit XML Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-xml-reports
+          path: target/surefire-reports/*
+      - name: Publish Test Results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Maven Tests
+          path: target/surefire-reports/*.xml
+          reporter: java-junit
+
+  StaticCodeAnalysis:
+    name: Analysis
+    runs-on: ubuntu-latest
+    needs: Test
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Run Tests with Coverage
+        run: mvn -B test verify
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: spring-boot-app
+          path: target
+
+      - name: Static Code Analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mvn -B \
+            -Dsonar.organization=devopsbul1dplan \
+            -Dsonar.projectKey=devopsbul1dplan_foodfrenzy-dev \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=$SONAR_TOKEN \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            sonar:sonar
+
+  SystemTesting:
+    name: System Testing
+    runs-on: ubuntu-latest
+    needs: StaticCodeAnalysis
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: spring-boot-app
+          path: target
+
+      - name: Start Application for System Tests
+        run: |
+          nohup java -jar target/*.jar &
+          echo "Waiting for application to start..."
+          sleep 20
+
+      - name: Run System Tests
+        run: mvn verify -Psystem-test
+
+      - name: Upload System Test Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-test-reports
+          path: target/failsafe-reports/**
+
+      - name: Publish System Test Results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: System Tests
+          path: target/failsafe-reports/TEST-*.xml
+          reporter: java-junit
 
